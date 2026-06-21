@@ -1,54 +1,16 @@
-name: Deploy to EC2
+script: |
+  set -e
 
-on:
-  push:
-    branches: [main]
+  cd $HOME
 
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
+  if [ ! -d "ticketflow" ]; then
+    git clone git@github.com:YOUR_USERNAME/YOUR_REPO.git ticketflow
+  fi
 
-    steps:
-      - name: Deploy to EC2 via SSH
-        uses: appleboy/ssh-action@v1.0.0
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            set -e
+  cd ticketflow
 
-            echo "🚀 Starting deployment..."
+  git reset --hard
+  git pull origin main
 
-            # Go to home directory
-            cd $HOME
-
-            # Clone repo if not exists
-            if [ ! -d "ticketflow" ]; then
-              echo "📥 Cloning repository..."
-              git clone https://github.com/YOUR_USERNAME/YOUR_REPO.git ticketflow
-            fi
-
-            cd ticketflow
-
-            # Reset and pull latest code
-            echo "🔄 Updating code..."
-            git reset --hard
-            git pull origin main
-
-            # Install Docker if missing
-            if ! command -v docker &> /dev/null; then
-              echo "🐳 Installing Docker..."
-              sudo apt update
-              sudo apt install docker.io docker-compose -y
-              sudo systemctl start docker
-              sudo systemctl enable docker
-              sudo usermod -aG docker $USER
-            fi
-
-            # Run containers
-            echo "⚙️ Running containers..."
-            docker compose down || true
-            docker compose up --build -d
-
-            echo "✅ Deployment completed!"
+  docker compose down || true
+  docker compose up --build -d
