@@ -7,18 +7,48 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
 
-      - name: Deploy over SSH
+    steps:
+      - name: Deploy to EC2 via SSH
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            cd ~/ticketflow
+            set -e
+
+            echo "🚀 Starting deployment..."
+
+            # Go to home directory
+            cd $HOME
+
+            # Clone repo if not exists
+            if [ ! -d "ticketflow" ]; then
+              echo "📥 Cloning repository..."
+              git clone https://github.com/YOUR_USERNAME/YOUR_REPO.git ticketflow
+            fi
+
+            cd ticketflow
+
+            # Reset and pull latest code
+            echo "🔄 Updating code..."
+            git reset --hard
             git pull origin main
-            docker compose down
+
+            # Install Docker if missing
+            if ! command -v docker &> /dev/null; then
+              echo "🐳 Installing Docker..."
+              sudo apt update
+              sudo apt install docker.io docker-compose -y
+              sudo systemctl start docker
+              sudo systemctl enable docker
+              sudo usermod -aG docker $USER
+            fi
+
+            # Run containers
+            echo "⚙️ Running containers..."
+            docker compose down || true
             docker compose up --build -d
+
+            echo "✅ Deployment completed!"
