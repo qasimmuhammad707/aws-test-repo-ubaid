@@ -9,35 +9,53 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy via SSH to EC2
+      - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
 
-          
- sscript: |
-  set -e
+          script: |
+            set -e
 
-  echo "🚀 Starting deployment..."
+            echo "🚀 Starting deployment..."
 
-  mkdir -p ~/.ssh
-  ssh-keyscan github.com >> ~/.ssh/known_hosts
+            # -----------------------------
+            # 1. Install git only (if missing)
+            # -----------------------------
+            if ! command -v git &> /dev/null; then
+              sudo apt update
+              sudo apt install git -y
+            fi
 
-  REPO_DIR="$HOME/ticketflow"
+            # -----------------------------
+            # 2. Fix GitHub SSH trust
+            # -----------------------------
+            mkdir -p ~/.ssh
+            ssh-keyscan github.com >> ~/.ssh/known_hosts
 
-  if [ ! -d "$REPO_DIR" ]; then
-    echo "📥 Cloning repository..."
-    git clone git@github.com:YOUR_USERNAME/YOUR_REPO.git $REPO_DIR
-  fi
+            # -----------------------------
+            # 3. Clone or update repo
+            # -----------------------------
+            REPO_DIR="$HOME/ticketflow"
 
-  cd $REPO_DIR
+            if [ ! -d "$REPO_DIR" ]; then
+              echo "📥 Cloning repository..."
+              git clone git@github.com:YOUR_USERNAME/YOUR_REPO.git $REPO_DIR
+            fi
 
-  git reset --hard
-  git pull origin main
+            cd $REPO_DIR
 
-  docker compose down || true
-  docker compose up --build -d
+            echo "🔄 Pulling latest code..."
+            git reset --hard
+            git pull origin main
 
-  echo "✅ Deployment successful!"          
+            # -----------------------------
+            # 4. Deploy Docker
+            # -----------------------------
+            echo "🐳 Running containers..."
+            docker compose down || true
+            docker compose up --build -d
+
+            echo "✅ Deployment completed!"
